@@ -1,0 +1,2051 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>대진표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: vertical knockout tree. 16 names stand in a row at the bottom, winners climb one level per round, the champion sits at the top; round labels run down the left edge. */
+:root{
+  --bg:#F1F3F8;
+  --surface:#FFFFFF;
+  --surface-2:#E7EBF3;
+  --ink:#141E36;
+  --ink-soft:#545F79;
+  --muted:#98A1B4;
+  --line:#C9D0DD;
+  --gold:#C27D0A;
+  --gold-soft:#FBECCF;
+  --gold-ink:#7A4900;
+  --tag-bg:#8A5300;
+  --tag-fg:#FFF8EA;
+  --warn:#A8352A;
+  --lime:#8CCB4A; --lime-hover:#7AB83A; --lime-fg:#16260A;
+  --orange:#E36D12; --orange-hover:#C95E0C; --orange-fg:#FFFFFF;
+  --red:#C8352B; --red-hover:#AE2B22; --red-fg:#FFFFFF;
+  --yellow:#FFF1B8; --yellow-hover:#FFE68A; --yellow-line:#E6CF73; --yellow-fg:#4A3A00;
+  --f-display:"Black Han Sans","IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --f-body:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+  --lab-w:clamp(44px,4.6vw,72px);
+  --col-gap:clamp(3px,.5vw,8px);
+  --lv-gap:clamp(26px,4.4vh,54px);
+  --cell-h:clamp(38px,3.3vw,56px);
+  --name:clamp(13px,1.12vw,20px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1321; --surface:#161F34; --surface-2:#1F2A44; --ink:#EDF0F7; --ink-soft:#A7B0C4;
+    --muted:#68748E; --line:#2E3A56; --gold:#EFB13C; --gold-soft:#382B12; --gold-ink:#F5C766;
+    --tag-bg:#EFB13C; --tag-fg:#1A1306; --warn:#F08A7C;
+    --lime:#93D352; --lime-hover:#A6DE6C; --lime-fg:#122006;
+    --orange:#F08A2C; --orange-hover:#F5A14F; --orange-fg:#1F1003;
+    --yellow:#E9D47E; --yellow-hover:#F2E09A; --yellow-line:#E9D47E; --yellow-fg:#241C00;
+    --red:#E2564A; --red-hover:#EA7064; --red-fg:#1E0604; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1321; --surface:#161F34; --surface-2:#1F2A44; --ink:#EDF0F7; --ink-soft:#A7B0C4;
+  --muted:#68748E; --line:#2E3A56; --gold:#EFB13C; --gold-soft:#382B12; --gold-ink:#F5C766;
+  --tag-bg:#EFB13C; --tag-fg:#1A1306; --warn:#F08A7C;
+    --lime:#93D352; --lime-hover:#A6DE6C; --lime-fg:#122006;
+    --orange:#F08A2C; --orange-hover:#F5A14F; --orange-fg:#1F1003;
+    --yellow:#E9D47E; --yellow-hover:#F2E09A; --yellow-line:#E9D47E; --yellow-fg:#241C00;
+    --red:#E2564A; --red-hover:#EA7064; --red-fg:#1E0604; color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{padding-block:20px 56px;padding-inline:clamp(16px,3vw,40px)}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 24px}
+.heading{min-width:0}
+h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:clamp(34px,4.6vw,76px);line-height:1.1;letter-spacing:.01em;text-wrap:balance}
+/* While the info panel is open the timer is hidden, so the title returns to its earlier size and the header keeps its old height. */
+body:not(.is-full) .top:has(+ .panel:not([hidden])) h1{font-size:clamp(28px,3.3vw,46px)}
+.status{margin:6px 0 0;color:var(--ink-soft);font-size:14px;font-variant-numeric:tabular-nums}
+.status b{color:var(--ink)}
+.actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px}
+/* The clear, photo and fullscreen buttons share a three-column grid with the timer, so the timer spans exactly their width. */
+.act-side{display:grid;grid-template-columns:auto auto auto;gap:8px}
+
+/* Timer: a big clock on the left, the small controls stacked on the right. Shown only while the info panel is closed. */
+.timer{grid-column:1 / -1;display:flex;align-items:center;gap:8px;min-width:0;padding:6px 6px 6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);transition:border-color .2s,background .2s}
+body:not(.is-full) .top:has(+ .panel:not([hidden])) .timer{display:none}
+.timer .t-time{flex:1;min-width:0;text-align:center;font:700 80px/1 var(--f-body);font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--ink)}
+.is-full .timer .t-time{font-size:88px}
+.timer .t-btns{display:flex;flex-direction:column;gap:4px}
+.timer .t-btn{display:grid;place-items:center;width:24px;height:24px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink-soft);cursor:pointer}
+.timer .t-btn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-soft)}
+.timer .t-btn:disabled{opacity:.35;cursor:default}
+.timer .t-btn svg{width:12px;height:12px;fill:currentColor}
+.timer .t-btn.go{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.timer .t-btn.go:hover{background:var(--ink-soft);border-color:var(--ink-soft);color:var(--bg)}
+.timer.running{border-color:var(--gold)}
+.timer.low .t-time{color:var(--warn)}
+.timer.done{border-color:var(--warn);animation:t-flash 1s steps(2,jump-none) infinite}
+.timer.done .t-time{color:var(--warn)}
+@keyframes t-flash{50%{background:var(--gold-soft)}}
+.btn{font-weight:600;font-size:14px;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s}
+.btn:hover:not(:disabled){border-color:var(--ink-soft)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover:not(:disabled){background:var(--ink-soft);border-color:var(--ink-soft)}
+.btn.lime{background:var(--lime);color:var(--lime-fg);border-color:var(--lime)}
+.btn.lime:hover:not(:disabled){background:var(--lime-hover);border-color:var(--lime-hover)}
+.btn.orange{background:var(--orange);color:var(--orange-fg);border-color:var(--orange)}
+.btn.orange:hover:not(:disabled){background:var(--orange-hover);border-color:var(--orange-hover)}
+.btn.red{background:var(--red);color:var(--red-fg);border-color:var(--red)}
+.btn.red:hover:not(:disabled){background:var(--red-hover);border-color:var(--red-hover)}
+.btn.yellow{background:var(--yellow);color:var(--yellow-fg);border-color:var(--yellow-line)}
+.btn.yellow:hover:not(:disabled){background:var(--yellow-hover);border-color:var(--yellow-line)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.wide{width:100%}
+
+/* Participant panel */
+.panel{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);gap:20px 28px}
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.field label,.field .label{font-size:13px;font-weight:600;color:var(--ink-soft);letter-spacing:.02em}
+.label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.count{font-size:13px;font-weight:700;color:var(--gold-ink);font-variant-numeric:tabular-nums}
+.mt{margin-top:10px}
+input[type=text],input[type=number],select,textarea{font:500 15px/1.5 var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;width:100%}
+textarea{height:calc(1.65em * 7 + 20px);min-height:calc(1.65em * 3 + 20px);resize:vertical;line-height:1.65}
+select{cursor:pointer}
+.label-tools{display:flex;align-items:center;gap:10px}
+.btn.sm{font-size:12px;padding:4px 10px;border-radius:6px}
+kbd{font:600 11px var(--f-body);padding:1px 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:var(--bg);color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:0;border-color:transparent}
+#numInput{width:5.5em}
+.inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.unit{color:var(--ink-soft);font-size:14px}
+.hint{margin:0;font-size:13px;color:var(--ink-soft);line-height:1.55}
+.hint.warn{color:var(--warn)}
+.rules{margin:4px 0 0;padding-left:1.1em;font-size:13px;color:var(--ink-soft);line-height:1.65}
+/* Panel text runs about 4.5% larger than the base sizes above. */
+.panel .field label,.panel .field .label,.panel .count,.panel .hint,.panel .rules{font-size:13.6px}
+.panel input[type=text],.panel input[type=number],.panel select,.panel textarea{font-size:15.7px}
+.panel .btn,.panel .unit{font-size:14.6px}
+.panel .btn.sm{font-size:12.5px}
+.panel kbd{font-size:11.5px}
+
+.note{margin:16px 0 0;background:var(--gold-soft);color:var(--gold-ink);border-radius:10px;padding:10px 14px;font-size:14px;line-height:1.55}
+
+/* Board */
+.swipe{margin:18px 0 0;font-size:13px;color:var(--ink-soft);text-align:center}
+.board-scroll{margin-top:22px;overflow-x:auto;padding-block:6px 14px}
+.board{--b:16;position:relative;min-width:calc(var(--b) * 55px);max-width:min(1500px, calc(var(--lab-w) + var(--b) * 190px));margin-inline:auto;overflow:hidden}
+.lv0 .p{max-width:190px}
+.tree{position:relative;z-index:1;display:grid;grid-template-columns:var(--lab-w) repeat(16,minmax(0,1fr));column-gap:var(--col-gap);row-gap:var(--lv-gap);align-items:center}
+.lab{grid-column:1;font-family:var(--f-display);font-size:clamp(14px,1.3vw,21px);line-height:1.2;color:var(--ink)}
+.lab small{display:block;margin-top:2px;font:600 12px var(--f-body);color:var(--ink-soft);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.lab.top{color:var(--gold-ink)}
+.cell{display:flex;justify-content:center;min-width:0}
+.lines{position:absolute;left:0;top:0;z-index:0;pointer-events:none;overflow:visible;transition:opacity .3s}
+.ln{fill:none;stroke:var(--line);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;transition:opacity .15s}
+.ln.on{stroke:var(--gold);stroke-width:3.5}
+.ln.hl{stroke:var(--ink);stroke-width:4}
+
+.p{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-width:0;min-height:var(--cell-h);padding:6px 4px;margin:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-family:var(--f-body);font-size:var(--name);font-weight:600;line-height:1.2;text-align:center;transition:opacity .15s,background .15s,border-color .15s}
+.lv0 .p{min-height:calc(var(--cell-h) + 16px)}
+.lv1 .p{max-width:170px}
+.lv2 .p{max-width:200px}
+.fin .p{max-width:240px;border-width:2px}
+.fin .p:not(.tbd){border-color:var(--gold)}
+.p .seed{font-size:11px;font-weight:600;line-height:1;color:var(--muted);font-variant-numeric:tabular-nums}
+.p .nm{max-width:100%;word-break:keep-all;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.p .sub{font-size:11px;font-weight:700;line-height:1;color:var(--gold-ink)}
+button.p{cursor:pointer}
+button.p.ready:hover{background:var(--surface-2);border-color:var(--ink-soft)}
+.p.win,.p.auto{background:var(--gold-soft);border-color:var(--gold);font-weight:700}
+.p.lose{background:transparent}
+.p.lose .nm{color:var(--muted);font-weight:500;text-decoration:line-through;text-decoration-thickness:1.5px}
+.p.tbd,.p.bye{background:transparent;border-style:dashed;color:var(--muted);font-weight:400;font-size:13px}
+
+.board.hovering .p:not(.hl),.board.hovering .champ:not(.hl){opacity:.42}
+.board.hovering .ln:not(.hl){opacity:.35}
+.p.hl{box-shadow:inset 0 0 0 2px var(--gold)}
+
+/* Champion */
+.champ{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:min(100%,240px);max-width:100%;padding:10px 26px 12px;border:2px solid var(--gold);border-radius:12px;background:var(--surface);text-align:center;transition:opacity .15s}
+.champ.won{background:var(--gold-soft)}
+.cup{width:clamp(24px,2.2vw,36px);height:auto}
+.cup .fill{fill:var(--gold)}
+.cup .stroke{fill:none;stroke:var(--gold);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.champ:not(.won) .cup{opacity:.35}
+.champ-name{font-family:var(--f-display);font-size:clamp(24px,2.7vw,46px);line-height:1.1;max-width:100%;overflow-wrap:anywhere}
+.champ-name.empty{font-family:var(--f-body);font-size:13px;font-weight:500;color:var(--muted);line-height:1.4}
+.runner{font-size:13px;color:var(--ink-soft)}
+.runner b{color:var(--ink)}
+
+.out{margin:10px auto 0;max-width:80ch;text-align:center;color:var(--ink-soft);font-size:14px}
+.out b{color:var(--ink)}
+.help{margin:12px auto 0;max-width:62ch;text-align:center;font-size:13px;color:var(--ink-soft);line-height:1.65;text-wrap:pretty}
+
+/* Motion */
+.board.drawing .lines{opacity:0}
+.board.drawing .tree{pointer-events:none}
+.nm.spin{color:var(--ink-soft)}
+.nm.settle{animation:settle .5s ease-out}
+@keyframes settle{from{color:var(--gold);transform:translateY(-4px)}to{transform:none}}
+.p.pop{animation:pop .9s ease-out}
+@keyframes pop{0%{box-shadow:inset 0 0 0 3px var(--gold);background:var(--gold-soft)}100%{box-shadow:inset 0 0 0 0 transparent}}
+.champ.pop .champ-name{animation:crown .8s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes crown{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:10;max-width:calc(100vw - 32px);padding:10px 18px;border-radius:999px;background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;text-align:center;opacity:0;transform:translate(-50%,16px);transition:opacity .2s,transform .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* Big screen (fullscreen) */
+.is-full .panel,.is-full .note,.is-full .help{display:none}
+.is-full{--lv-gap:6vh;--cell-h:clamp(44px,4.4vw,80px);--name:clamp(16px,1.5vw,30px)}
+
+/* Page switch */
+.pager{display:flex;gap:4px;width:fit-content;max-width:100%;margin:0 0 18px;padding:4px;background:var(--surface-2);border-radius:10px}
+.pager button{border:0;background:transparent;color:var(--ink-soft);font-weight:700;font-size:15px;padding:8px 16px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.pager button:hover{color:var(--ink)}
+.pager button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(20,30,54,.16)}
+.is-full .pager{display:none}
+
+/* Group page: groups of a chosen size; the top few of each group climb into the next group; the final group sits under the champion. */
+#gNumInput{width:5.5em}
+.panel input.sq{width:3.1em;padding-inline:4px;text-align:center}
+.panel .form-row{gap:8px 5px}
+.panel .form-row .seg{display:inline-flex;align-items:center;gap:5px}
+/* A content block with a small helper button right after it (same 14px gap as the number-fill row); the block wraps inside its own space when it gets tight. */
+.side-row{display:flex;align-items:center;gap:14px}
+.side-row > .form-row,.side-text{flex:0 1 auto;min-width:0}
+.side-row.end{justify-content:space-between}
+.side-row.end > .side-text{flex:1 1 auto}
+.side-text{display:flex;flex-direction:column;gap:8px}
+.panel .btn.side-btn{flex:none;padding:6px 12px;line-height:1.3;text-align:center}
+/* Number-fill row: 14px before the button; when the button wraps it starts flush left. */
+.panel .num-row{gap:8px 14px}
+.panel .num-row .seg{display:inline-flex;align-items:center;gap:8px}
+.panel .form-row .unit{white-space:nowrap}
+/* Name list column is a fixed 400px; the rest goes to the first column so the form fits on one line. */
+@media (min-width:901px){
+  #panel .panel-grid,#gPanel .panel-grid{grid-template-columns:minmax(0,1.45fr) 700px minmax(0,1fr)}
+}
+.gboard{--g:4;--gname:clamp(13px,1vw,17px);position:relative;min-width:calc(var(--lab-w) + var(--g) * 112px);max-width:min(1500px, calc(var(--lab-w) + var(--g) * 300px));margin-inline:auto;overflow:hidden}
+.is-full .gboard{--gname:clamp(15px,1.3vw,24px)}
+.gtree{position:relative;z-index:1;display:grid;column-gap:clamp(6px,.8vw,12px);row-gap:clamp(34px,5vh,60px);align-items:end}
+.gcell{display:flex;justify-content:center;min-width:0}
+.grp{width:100%;max-width:250px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:opacity .15s,border-color .15s}
+.grp.fin{max-width:300px;border-width:2px}
+.grp.done{border-color:var(--gold)}
+.grp-h{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:5px 10px;background:var(--surface-2);font-weight:700;font-size:14px}
+.grp-h .st{font-size:11px;font-weight:600;color:var(--ink-soft);white-space:nowrap;font-variant-numeric:tabular-nums}
+.grp.done .grp-h{background:var(--gold-soft);color:var(--gold-ink)}
+.grp.done .grp-h .st{color:var(--gold-ink)}
+.mem{display:flex;align-items:center;gap:6px;width:100%;min-height:36px;margin:0;padding:6px 10px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);font:600 var(--gname)/1.25 var(--f-body);text-align:left;transition:opacity .15s,background .15s}
+.mem .no{min-width:1.5em;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mem .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mem .rk{flex:none;padding:1px 7px;border-radius:999px;background:var(--tag-bg);color:var(--tag-fg);font-size:11px;font-weight:700;line-height:1.5}
+button.mem{cursor:pointer}
+button.mem:hover{background:var(--surface-2)}
+.mem.adv,button.mem.adv:hover{background:var(--gold-soft);font-weight:700}
+.mem.out .nm{color:var(--muted);font-weight:500;text-decoration:line-through;text-decoration-thickness:1.5px}
+.mem.tbd{color:var(--muted);font-weight:400;font-size:13px}
+.mem.pop{animation:pop .9s ease-out}
+.gboard .champ{min-width:min(100%,260px)}
+.gboard.hovering .mem:not(.hl),.gboard.hovering .champ:not(.hl){opacity:.42}
+.mem.hl{box-shadow:inset 0 0 0 2px var(--gold)}
+.gboard.drawing .lines{opacity:0}
+.gboard.drawing .gtree{pointer-events:none}
+
+@media (max-width:900px){
+  .panel-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){
+  .pager{width:100%}
+  .pager button{flex:1;padding-inline:8px;font-size:14px}
+}
+/* 32 slots: first-round names are always written top to bottom so all 32 fit across a laptop screen; smaller screens scroll sideways. */
+.board[data-b="32"]{min-width:calc(var(--lab-w) + 32 * 30px)}
+.board[data-b="32"] .lv0 .p{padding:6px 0}
+.board[data-b="32"] .lv0 .nm{writing-mode:vertical-rl;text-orientation:upright;display:block;white-space:nowrap;max-height:5.6em;text-overflow:ellipsis;letter-spacing:-.02em;font-size:clamp(13px,1vw,18px)}
+.board[data-b="32"] .lv0 .sub{writing-mode:vertical-rl;text-orientation:upright}
+/* Narrow screens: names in crowded bottom rows are written top to bottom so every slot fits across. */
+@media (max-width:760px){
+  :root{--lab-w:34px;--col-gap:3px}
+  .board{min-width:0}
+  .lab{font-size:12px}
+  .lab small{font-size:10px;letter-spacing:0}
+  .board[data-b="16"] .lv0 .p{padding:6px 0}
+  .board[data-b="16"] .lv0 .nm{writing-mode:vertical-rl;text-orientation:upright;display:block;white-space:nowrap;max-height:5.6em;text-overflow:ellipsis;letter-spacing:-.02em}
+  .lv0 .p.tbd .nm{font-size:11px}
+  .board[data-b="16"] .lv0 .sub{writing-mode:vertical-rl;text-orientation:upright}
+  .board[data-b="32"] .lv1 .p{padding:6px 0}
+  .board[data-b="32"] .lv1 .nm{writing-mode:vertical-rl;text-orientation:upright;display:block;white-space:nowrap;max-height:5.6em;text-overflow:ellipsis}
+}
+@media (max-width:520px){
+  .board[data-b="16"] .lv1 .p,.board[data-b="8"] .lv0 .p{padding:6px 0}
+  .board[data-b="16"] .lv1 .nm,.board[data-b="8"] .lv0 .nm{writing-mode:vertical-rl;text-orientation:upright;display:block;white-space:nowrap;max-height:5.6em;text-overflow:ellipsis}
+  .board[data-b="8"] .lv0 .sub{writing-mode:vertical-rl;text-orientation:upright}
+  .p .sub{font-size:10px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="pager" aria-label="대진 방식">
+    <button type="button" data-page="ko">1:1 토너먼트</button>
+    <button type="button" data-page="group">다인조 토너먼트</button>
+  </nav>
+
+  <div id="pageKO">
+  <header class="top">
+    <div class="heading">
+      <h1 id="titleView">토너먼트</h1>
+      <p id="status" class="status"></p>
+    </div>
+    <div class="actions">
+      <button id="btnPanel" class="btn lime" type="button" aria-controls="panel">대진표 정보 입력</button>
+      <button id="btnDraw" class="btn orange" type="button">랜덤 추첨</button>
+      <button id="btnUndo" class="btn" type="button">되돌리기</button>
+      <div class="act-side">
+        <button id="btnClear" class="btn red" type="button">결과 지우기</button>
+        <button id="btnPng" class="btn" type="button" data-png="ko">사진 저장</button>
+        <button id="btnFull" class="btn" type="button">크게 보기</button>
+        <div class="timer" data-timer aria-label="타이머"></div>
+      </div>
+    </div>
+  </header>
+
+  <section id="panel" class="panel" aria-label="대진표 정보 입력">
+    <div class="panel-grid">
+      <div class="field">
+        <label for="titleInput">대회 이름</label>
+        <input id="titleInput" type="text" maxlength="40" placeholder="예: 2학년 피구 대회">
+        <label for="sizeInput" class="mt">대진 크기</label>
+        <select id="sizeInput"></select>
+        <p class="hint">첫 경기에 나설 인원이에요. 16강, 8강처럼 딱 맞지 않으면 몇 명은 부전승으로 올라가요.</p>
+        <label for="numInput" class="mt">번호로 채우기</label>
+        <div class="inline num-row">
+          <span class="seg"><input id="numInput" type="number" min="2" max="60" value="16" inputmode="numeric">
+          <span class="unit">명</span></span>
+          <button id="btnNum" class="btn yellow" type="button">1번부터 참가자 명단에 넣기</button>
+        </div>
+        <p class="hint">이름 대신 번호로 대진을 짤 때 쓰세요. 명단 칸이 1번, 2번… 으로 바뀌어요.</p>
+      </div>
+      <div class="field">
+        <div class="label-row">
+          <label for="namesInput">참가자 명단</label>
+          <span class="label-tools">
+            <span id="countBadge" class="count">0명</span>
+            <button id="btnNamesUndo" class="btn sm" type="button" title="Ctrl+Z">명단 되돌리기</button>
+          </span>
+        </div>
+        <textarea id="namesInput" rows="6" spellcheck="false" placeholder="한 줄에 한 명씩, 또는 쉼표로 나눠서 입력하세요"></textarea>
+        <p id="namesHint" class="hint"></p>
+        <p class="hint">명단을 실수로 지웠다면 <kbd>Ctrl</kbd>+<kbd>Z</kbd>로 되살릴 수 있어요. 다시 실행은 <kbd>Ctrl</kbd>+<kbd>Y</kbd>예요.</p>
+      </div>
+      <div class="field">
+        <span class="label">대진 정하기</span>
+        <button id="btnDraw2" class="btn orange wide" type="button">랜덤 추첨</button>
+        <button id="btnOrder" class="btn yellow wide" type="button">입력 순서대로 배치</button>
+        <ul class="rules">
+          <li>명단이 대진 크기보다 많으면 랜덤 추첨은 무작위로 뽑고, 순서대로 배치는 앞에서부터 뽑아요.</li>
+          <li>명단이 대진 크기보다 적으면 명단 인원만큼으로 만들어져요.</li>
+          <li>추첨을 잘못했으면 되돌리기를 누르세요.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <p id="exampleNote" class="note" hidden>지금 보이는 명단과 결과는 <b>예시</b>예요. 참가자 명단에 이름을 넣고 <b>랜덤 추첨</b>을 누르면 우리 대진표가 만들어져요.</p>
+
+  <p id="swipe" class="swipe" hidden>옆으로 밀어서 전체 대진을 보세요</p>
+  <div class="board-scroll">
+    <div id="board" class="board">
+      <svg id="lines" class="lines" aria-hidden="true"></svg>
+      <div id="tree" class="tree"></div>
+    </div>
+  </div>
+  <p id="outLine" class="out" hidden></p>
+  <p class="help">이름을 누르면 그 사람이 이겨서 위 칸으로 올라가요. 같은 이름을 한 번 더 누르면 취소되고, 상대 이름을 누르면 승자가 바뀌어요. 이름 위에 마우스를 올리면 그 사람이 지나온 길이 보여요.</p>
+  </div>
+
+  <div id="pageGR" hidden>
+  <header class="top">
+    <div class="heading">
+      <h1 id="gTitleView">다인조 토너먼트</h1>
+      <p id="gStatus" class="status"></p>
+    </div>
+    <div class="actions">
+      <button id="gBtnPanel" class="btn lime" type="button" aria-controls="gPanel">대진표 정보 입력</button>
+      <button id="gBtnDraw" class="btn orange" type="button">랜덤 추첨</button>
+      <button id="gBtnUndo" class="btn" type="button">되돌리기</button>
+      <div class="act-side">
+        <button id="gBtnClear" class="btn red" type="button">결과 지우기</button>
+        <button id="gBtnPng" class="btn" type="button" data-png="group">사진 저장</button>
+        <button id="gBtnFull" class="btn" type="button">크게 보기</button>
+        <div class="timer" data-timer aria-label="타이머"></div>
+      </div>
+    </div>
+  </header>
+
+  <section id="gPanel" class="panel" aria-label="대진표 정보 입력">
+    <div class="panel-grid">
+      <div class="field">
+        <label for="gTitleInput">대회 이름</label>
+        <input id="gTitleInput" type="text" maxlength="40" placeholder="예: 2학년 보드게임 대회">
+        <span class="label mt">대진 양식</span>
+        <div class="side-row">
+        <div class="inline form-row">
+          <span class="seg">
+            <input id="gPerInput" class="sq" type="number" min="2" max="12" value="4" inputmode="numeric" aria-label="한 조 인원">
+            <span class="unit">명씩</span>
+            <input id="gCntInput" class="sq" type="number" min="1" max="32" value="4" inputmode="numeric" aria-label="조 수">
+            <span class="unit">개 조,</span>
+          </span>
+          <span class="seg">
+            <span class="unit">조마다</span>
+            <input id="gAdvInput" class="sq" type="number" min="1" max="6" value="2" inputmode="numeric" aria-label="조마다 올라가는 인원">
+            <span class="unit">명 진출</span>
+          </span>
+        </div>
+        <button id="gBtnFit" class="btn yellow sm side-btn" type="button">명단 인원에 맞게<br>대진 양식 정하기</button>
+        </div>
+        <p id="gFormHint" class="hint"></p>
+        <label for="gNumInput" class="mt">번호로 채우기</label>
+        <div class="inline num-row">
+          <span class="seg"><input id="gNumInput" type="number" min="2" max="200" value="16" inputmode="numeric">
+          <span class="unit">명</span></span>
+          <button id="gBtnNum" class="btn yellow" type="button">1번부터 참가자 명단에 넣기</button>
+        </div>
+        <p class="hint">이름 대신 번호로 대진을 짤 때 쓰세요. 명단 칸이 1번, 2번… 으로 바뀌어요.</p>
+      </div>
+      <div class="field">
+        <div class="label-row">
+          <label for="gNamesInput">참가자 명단</label>
+          <span class="label-tools">
+            <span id="gCountBadge" class="count">0명</span>
+            <button id="gBtnNamesUndo" class="btn sm" type="button" title="Ctrl+Z">명단 되돌리기</button>
+          </span>
+        </div>
+        <textarea id="gNamesInput" rows="6" spellcheck="false" placeholder="한 줄에 한 명씩, 또는 쉼표로 나눠서 입력하세요"></textarea>
+        <div class="side-row end">
+          <div class="side-text">
+            <p id="gNamesHint" class="hint"></p>
+            <p class="hint">명단을 실수로 지웠다면 <kbd>Ctrl</kbd>+<kbd>Z</kbd>로 되살릴 수 있어요. 다시 실행은 <kbd>Ctrl</kbd>+<kbd>Y</kbd>예요.</p>
+          </div>
+          <button id="gBtnImport" class="btn yellow sm side-btn" type="button">1:1 토너먼트<br>명단 가져오기</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">대진 정하기</span>
+        <button id="gBtnDraw2" class="btn orange wide" type="button">랜덤 추첨</button>
+        <button id="gBtnOrder" class="btn yellow wide" type="button">입력 순서대로 배치</button>
+        <ul class="rules">
+          <li>이웃한 조의 진출자끼리 모여 다음 라운드의 새 조가 돼요. 조가 하나 남을 때까지 이어지고, 마지막 조가 결승조예요.</li>
+          <li>명단이 양식보다 적으면 조마다 고르게 나눠요. 진출 인원 이하인 조는 경기 없이 모두 올라가요.</li>
+          <li>명단이 양식보다 많으면 넘치는 사람은 이번 대진에서 빠져요.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <p id="gExampleNote" class="note" hidden>지금 보이는 명단과 결과는 <b>예시</b>예요. 참가자 명단에 이름을 넣고 <b>랜덤 추첨</b>을 누르면 우리 대진표가 만들어져요.</p>
+
+  <p id="gSwipe" class="swipe" hidden>옆으로 밀어서 전체 대진을 보세요</p>
+  <div class="board-scroll">
+    <div id="gBoard" class="gboard">
+      <svg id="gLines" class="lines" aria-hidden="true"></svg>
+      <div id="gTree" class="gtree"></div>
+    </div>
+  </div>
+  <p id="gOutLine" class="out" hidden></p>
+  <p class="help">조에서 올라갈 사람의 이름을 순위대로 누르세요. 먼저 누른 사람이 1위, 다음 사람이 2위로 위 라운드에 올라가요. 같은 이름을 다시 누르면 취소돼요. 결승조에서는 먼저 누른 사람이 우승, 다음 사람이 준우승이에요.</p>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const MAX = 32;
+  const KEY = 'league16.v1';
+  const NAMES_UNDO_KEY = 'league16.names-undo';
+  const SAMPLE = ['김민준', '이서연', '박도윤', '최서윤', '정하준', '강지우', '조은우', '윤하은',
+                  '장시우', '임수아', '한지호', '오지유', '서예준', '신채원', '권유준', '황다은'];
+  const TROPHY = '<svg class="cup" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path class="fill" d="M7 3.5h10v3.5a5 5 0 0 1-10 0V3.5Z"/>' +
+    '<path class="stroke" d="M7 5H4.2v1.4A3.6 3.6 0 0 0 7.6 10M17 5h2.8v1.4A3.6 3.6 0 0 1 16.4 10M12 12v4"/>' +
+    '<path class="fill" d="M8.4 20.5h7.2l-1-4.5H9.4l-1 4.5Z"/></svg>';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (s) => document.querySelector(s);
+  const board = $('#board'), treeEl = $('#tree'), svg = $('#lines');
+  const namesInput = $('#namesInput'), titleInput = $('#titleInput'), sizeInput = $('#sizeInput');
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const parseNames = (t) => String(t || '').split(/[\n,，、]+/)
+    .map((s) => s.trim().replace(/\s+/g, ' ').slice(0, 20)).filter(Boolean);
+  const pow2 = (n) => { let b = 2; while (b < n) b *= 2; return b; };
+  const emptyWins = (B) => Array.from({ length: Math.log2(B) }, (_, r) => Array(B >> (r + 1)).fill(null));
+
+  // Standard seeding for a bracket of B slots: seeds 1 and 2 can only meet in the final.
+  // Seeds above the player count become byes, so byes spread evenly across the bracket.
+  function seedOrder(B) {
+    let o = [1];
+    while (o.length < B) { const n = o.length * 2; o = o.flatMap((s) => [s, n + 1 - s]); }
+    return o;
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function place(names, random, size) {
+    const idx = names.map((_, i) => i);
+    if (random) shuffle(idx);
+    const k = Math.min(size, names.length);
+    const picked = idx.slice(0, k).map((i) => names[i]);
+    const out = idx.slice(k).sort((a, b) => a - b).map((i) => names[i]);
+    const B = pow2(k), seeds = seedOrder(B);
+    const slots = Array(B).fill(null);
+    let j = 0;
+    for (let i = 0; i < B; i++) if (seeds[i] <= k) slots[i] = picked[j++];
+    return { slots, out };
+  }
+
+  function sampleState() {
+    const { slots, out } = place(SAMPLE, false, 16);
+    const wins = emptyWins(16);
+    wins[0][0] = 0; wins[0][1] = 3; wins[0][2] = 4; wins[0][4] = 9; wins[1][0] = 0;
+    return { title: '우리 반 토너먼트', input: SAMPLE.join('\n'), size: 16, slots, out, wins,
+             drawn: SAMPLE.join('\n'), drawnSize: 16, example: true, panel: true };
+  }
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY));
+      if (!d || !Array.isArray(d.slots) || !Array.isArray(d.wins)) return null;
+      const B = d.slots.length;
+      if (B < 2 || B > MAX || pow2(B) !== B || d.wins.length !== Math.log2(B)) return null;
+      if (d.wins.some((row, r) => !Array.isArray(row) || row.length !== B >> (r + 1))) return null;
+      const s = Object.assign({ title: '', input: '', size: MAX, out: [], drawn: '', example: false, panel: true }, d);
+      if (s.drawnSize == null) s.drawnSize = s.slots.filter(Boolean).length;
+      return s;
+    } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ }
+  }
+
+  let S = load() || sampleState();
+  const history = [];
+  let hl = null;
+
+  const B = () => S.slots.length;
+  const L = () => S.wins.length;
+  const N = () => S.slots.filter(Boolean).length;
+  // Name of a level: level 0 is the first round, level L() is the champion.
+  function levelName(lv) {
+    if (lv >= L()) return '우승';
+    const cnt = B() >> lv;
+    if (cnt === 2) return '결승';
+    return `${lv === 0 ? N() : cnt}강`;
+  }
+  const advName = (r) => (r === L() - 1 ? '우승' : `${levelName(r + 1)} 진출`);
+
+  // A participant is a slot index (number), 'BYE' (nobody will ever arrive) or null (not decided yet).
+  function part(r, m) {
+    if (r === 0) return [S.slots[2 * m] ? 2 * m : 'BYE', S.slots[2 * m + 1] ? 2 * m + 1 : 'BYE'];
+    return [win(r - 1, 2 * m), win(r - 1, 2 * m + 1)];
+  }
+  function win(r, m) {
+    const [a, b] = part(r, m);
+    if (a === 'BYE' && b === 'BYE') return 'BYE';
+    if (a === 'BYE') return b;
+    if (b === 'BYE') return a;
+    if (a === null || b === null) return null;
+    const w = S.wins[r][m];
+    return w === a || w === b ? w : null;
+  }
+  // Drop results whose winner no longer reaches that match. Returns how many were dropped.
+  function normalize() {
+    let n = 0;
+    for (let r = 0; r < L(); r++) for (let m = 0; m < (B() >> (r + 1)); m++) {
+      const w = S.wins[r][m];
+      if (w == null) continue;
+      const [a, b] = part(r, m);
+      if (!(typeof a === 'number' && typeof b === 'number' && (w === a || w === b))) { S.wins[r][m] = null; n++; }
+    }
+    return n;
+  }
+  function players(r, m, s) {
+    const size = 1 << r, start = (2 * m + s) * size;
+    let c = 0;
+    for (let i = start; i < start + size; i++) if (S.slots[i]) c++;
+    return c;
+  }
+  const contested = (r, m) => players(r, m, 0) > 0 && players(r, m, 1) > 0;
+  const nameOf = (pid) => S.slots[pid];
+
+  // Cell i on level lv (0 = the first-round names at the bottom) is side i&1 of match i>>1 in round lv.
+  function cellHTML(lv, i, seedNo) {
+    const span = 1 << lv;
+    const pos = `class="cell lv${lv}${lv === L() - 1 ? ' fin' : ''}" style="grid-row:${L() + 1 - lv};grid-column:${2 + i * span} / span ${span}"`;
+    const at = `data-lv="${lv}" data-i="${i}"`;
+    const r = lv, m = i >> 1, s = i & 1;
+    const [a, b] = part(r, m);
+    const p = s ? b : a, o = s ? a : b, w = win(r, m);
+    if (p === 'BYE') return `<div ${pos}></div>`;
+    if (p === null) return `<div ${pos}><div class="p tbd" ${at}><span class="nm">?</span></div></div>`;
+    let st;
+    if (o === 'BYE') st = 'auto';
+    else if (o === null) st = 'wait';
+    else if (w === p) st = 'win';
+    else if (w != null) st = 'lose';
+    else st = 'ready';
+    const name = esc(nameOf(p));
+    const seed = lv === 0 ? `<span class="seed">${seedNo[p]}</span>` : '';
+    const sub = st === 'auto' ? '<span class="sub">부전승</span>' : '';
+    const inner = `${seed}<span class="nm" title="${name}">${name}</span>${sub}`;
+    const data = `${at} data-pid="${p}" data-r="${r}" data-m="${m}"`;
+    if (st === 'ready' || st === 'win' || st === 'lose') {
+      const label = st === 'win' ? `${name} 승리 취소` : `${name} 승리로 기록`;
+      return `<div ${pos}><button type="button" class="p ${st}" ${data} aria-pressed="${st === 'win'}" aria-label="${label}">${inner}</button></div>`;
+    }
+    return `<div ${pos}><div class="p ${st}" ${data}>${inner}</div></div>`;
+  }
+
+  function champHTML() {
+    const top = L();
+    const pos = `class="cell lv${top} top" style="grid-row:1;grid-column:2 / span ${B()}"`;
+    const fw = win(top - 1, 0);
+    if (typeof fw !== 'number') {
+      return `<div ${pos}><div class="champ" data-lv="${top}" data-i="0">${TROPHY}<div class="champ-name empty">결승 결과를 기다려요</div></div></div>`;
+    }
+    const [a, b] = part(top - 1, 0);
+    const ru = a === fw ? b : a;
+    return `<div ${pos}><div class="champ won" data-lv="${top}" data-i="0" data-pid="${fw}">${TROPHY}` +
+      `<div class="champ-name">${esc(nameOf(fw))}</div>` +
+      (typeof ru === 'number' ? `<div class="runner">준우승 <b>${esc(nameOf(ru))}</b></div>` : '') + '</div></div>';
+  }
+
+  function render(opt = {}) {
+    $('#titleView').textContent = (S.title || '').trim() || '토너먼트';
+    board.dataset.b = B();
+    board.style.setProperty('--b', B());
+    treeEl.style.gridTemplateColumns = `var(--lab-w) repeat(${B()}, minmax(0, 1fr))`;
+
+    // Number the players 1..N from left to right, skipping empty slots.
+    const seedNo = {};
+    let k = 0;
+    S.slots.forEach((nm, i) => { if (nm) seedNo[i] = ++k; });
+
+    let html = '';
+    for (let lv = 0; lv <= L(); lv++) {
+      let prog = '';
+      if (lv < L()) {
+        let total = 0, done = 0;
+        for (let m = 0; m < (B() >> (lv + 1)); m++) {
+          if (!contested(lv, m)) continue;
+          total++;
+          if (typeof win(lv, m) === 'number') done++;
+        }
+        prog = total ? `${done}/${total}` : '—';
+      }
+      html += `<div class="lab${lv === L() ? ' top' : ''}" style="grid-row:${L() + 1 - lv}">${levelName(lv)}${prog ? `<small>${prog}</small>` : ''}</div>`;
+      if (lv === L()) html += champHTML();
+      else for (let i = 0; i < (B() >> lv); i++) html += cellHTML(lv, i, seedNo);
+    }
+    treeEl.innerHTML = html;
+
+    let total = 0, done = 0, cur = -1;
+    for (let r = 0; r < L(); r++) for (let m = 0; m < (B() >> (r + 1)); m++) {
+      if (!contested(r, m)) continue;
+      total++;
+      if (typeof win(r, m) === 'number') done++;
+      else if (cur < 0) cur = r;
+    }
+    const champ = win(L() - 1, 0);
+    $('#status').innerHTML = `${N()}명 참가 · ${done}/${total} 경기 완료 · ` +
+      (typeof champ === 'number' ? `우승 <b>${esc(nameOf(champ))}</b>` : `지금은 <b>${levelName(cur)}</b>`);
+
+    const out = $('#outLine');
+    out.hidden = !S.out.length;
+    out.innerHTML = S.out.length ? `<b>이번 대진에서 빠진 ${S.out.length}명</b> · ${S.out.map(esc).join(', ')}` : '';
+
+    $('#exampleNote').hidden = !S.example;
+    $('#btnUndo').disabled = !history.length;
+    $('#btnClear').disabled = !S.wins.some((row) => row.some((w) => w != null));
+    $('#panel').hidden = !S.panel;
+    $('#btnPanel').setAttribute('aria-expanded', String(!!S.panel));
+    $('#btnPanel').textContent = S.panel ? '대진표 정보 입력 닫기' : '대진표 정보 입력';
+    updateHints();
+    applyHL();
+
+    if (opt.spin) spin();
+    requestAnimationFrame(() => {
+      drawLines();
+      if (opt.pop) {
+        const el = opt.pop.r < L() - 1
+          ? board.querySelector(`.p[data-r="${opt.pop.r + 1}"][data-pid="${opt.pop.pid}"]`)
+          : board.querySelector('.champ');
+        if (el) el.classList.add('pop');
+      }
+    });
+  }
+
+  // From the top of a child cell up to a shared bar, across, then up into the parent.
+  function climb(x1, y1, x2, y2) {
+    if (Math.abs(x2 - x1) < 1) return `M${x1} ${y1}V${y2}`;
+    const yb = (y1 + y2) / 2, dx = Math.sign(x2 - x1);
+    const rr = Math.min(7, Math.abs(x2 - x1) / 2, (y1 - y2) / 2);
+    return `M${x1} ${y1}V${yb + rr}Q${x1} ${yb} ${x1 + dx * rr} ${yb}` +
+      `H${x2 - dx * rr}Q${x2} ${yb} ${x2} ${yb - rr}V${y2}`;
+  }
+
+  function drawLines() {
+    const br = board.getBoundingClientRect();
+    const W = board.offsetWidth, H = board.offsetHeight;
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const cell = (lv, i) => board.querySelector(`[data-lv="${lv}"][data-i="${i}"]`);
+    let off = '', on = '';
+    for (let lv = 0; lv < L(); lv++) for (let i = 0; i < (B() >> lv); i++) {
+      const ce = cell(lv, i), pe = cell(lv + 1, i >> 1);
+      if (!ce || !pe) continue;
+      const c = ce.getBoundingClientRect(), p = pe.getBoundingClientRect();
+      const d = climb(c.left + c.width / 2 - br.left, c.top - br.top, p.left + p.width / 2 - br.left, p.bottom - br.top);
+      const pid = ce.dataset.pid;
+      if (pid != null && win(lv, i >> 1) === +pid) on += `<path class="ln on" data-pid="${pid}" d="${d}"/>`;
+      else off += `<path class="ln" d="${d}"/>`;
+    }
+    svg.innerHTML = off + on;
+    const sc = board.parentElement;
+    $('#swipe').hidden = sc.scrollWidth <= sc.clientWidth + 1;
+    applyHL();
+  }
+
+  function applyHL() {
+    board.querySelectorAll('.hl').forEach((el) => el.classList.remove('hl'));
+    board.classList.toggle('hovering', hl != null);
+    if (hl != null) board.querySelectorAll(`[data-pid="${hl}"]`).forEach((el) => el.classList.add('hl'));
+  }
+  function setHL(pid) {
+    if (pid === hl) return;
+    hl = pid;
+    applyHL();
+  }
+
+  // Slot-machine reveal of the first-round names after a random draw.
+  function spin() {
+    if (reduceMotion) return;
+    const els = [...board.querySelectorAll('.p[data-r="0"][data-pid] .nm')];
+    if (!els.length) return;
+    const pool = els.map((e) => e.textContent);
+    els.forEach((el) => { el.dataset.final = el.textContent; el.classList.add('spin'); el.last = 0; });
+    board.classList.add('drawing');
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = now - t0;
+      let alive = 0;
+      els.forEach((el, i) => {
+        if (!el.classList.contains('spin')) return;
+        if (t > 380 + i * 70) {
+          el.textContent = el.dataset.final;
+          el.classList.remove('spin');
+          el.classList.add('settle');
+        } else {
+          alive++;
+          if (now - el.last > 55) { el.textContent = pool[(Math.random() * pool.length) | 0]; el.last = now; }
+        }
+      });
+      if (alive) requestAnimationFrame(tick);
+      else board.classList.remove('drawing');
+    };
+    requestAnimationFrame(tick);
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  const snap = () => JSON.stringify({ slots: S.slots, wins: S.wins, out: S.out, drawn: S.drawn, drawnSize: S.drawnSize, example: S.example });
+  function pushHistory() {
+    history.push(snap());
+    if (history.length > 100) history.shift();
+  }
+
+  function draw(random) {
+    const names = parseNames(namesInput.value);
+    if (names.length < 2) {
+      S.panel = true;
+      render();
+      namesInput.focus();
+      toast('참가자를 2명 이상 입력하세요');
+      return;
+    }
+    pushHistory();
+    const { slots, out } = place(names, random, S.size);
+    const k = Math.min(S.size, names.length);
+    Object.assign(S, { slots, out, wins: emptyWins(slots.length), example: false,
+                       drawn: names.join('\n'), drawnSize: k, input: namesInput.value });
+    save();
+    render({ spin: random });
+    toast(random ? `${levelName(0)} 대진을 새로 추첨했어요` : `${levelName(0)} 대진을 입력 순서대로 배치했어요`);
+  }
+
+  function pick(r, m, pid) {
+    const [a, b] = part(r, m);
+    if (typeof a !== 'number' || typeof b !== 'number') return;
+    pushHistory();
+    const name = nameOf(pid);
+    let msg, pop = null;
+    if (S.wins[r][m] === pid) {
+      S.wins[r][m] = null;
+      msg = `${name}의 ${levelName(r)} 승리를 취소했어요`;
+    } else {
+      const changed = S.wins[r][m] != null;
+      S.wins[r][m] = pid;
+      msg = r === L() - 1 ? `${name} 우승!` : `${name} ${advName(r)}`;
+      if (changed) msg = `승자 변경 · ${msg}`;
+      pop = { r, pid };
+    }
+    const cleared = normalize();
+    if (cleared) msg += ` · 이어진 경기 ${cleared}개 결과를 지웠어요`;
+    save();
+    render({ pop });
+    toast(msg);
+  }
+
+  function undo() {
+    if (!history.length) return;
+    Object.assign(S, JSON.parse(history.pop()));
+    save();
+    render();
+    toast('한 단계 되돌렸어요');
+  }
+
+  // Undo for the name list. Typing is grouped into short bursts; a big deletion is always its own step,
+  // so a list wiped by mistake comes back with one Ctrl+Z. The steps survive a page reload.
+  const nameHist = { undo: [], redo: [], last: '', open: false, timer: 0 };
+  try {
+    const u = JSON.parse(localStorage.getItem(NAMES_UNDO_KEY));
+    if (Array.isArray(u)) nameHist.undo = u.filter((x) => typeof x === 'string').slice(-30);
+  } catch (e) { /* storage unavailable */ }
+  function saveNameHist() {
+    try { localStorage.setItem(NAMES_UNDO_KEY, JSON.stringify(nameHist.undo.slice(-30))); } catch (e) { /* storage unavailable */ }
+  }
+  function pushNameStep(v) {
+    if (nameHist.undo[nameHist.undo.length - 1] !== v) nameHist.undo.push(v);
+    if (nameHist.undo.length > 200) nameHist.undo.shift();
+    nameHist.redo.length = 0;
+    saveNameHist();
+  }
+  function applyNames(v) {
+    namesInput.value = v;
+    nameHist.last = v;
+    nameHist.open = false;
+    S.input = v;
+    save();
+    updateHints();
+  }
+  function setNames(v) {
+    if (v !== namesInput.value) pushNameStep(namesInput.value);
+    applyNames(v);
+  }
+  function onNamesInput() {
+    const v = namesInput.value;
+    const bigDrop = v.length < nameHist.last.length - 1;
+    if (!nameHist.open || bigDrop) {
+      pushNameStep(nameHist.last);
+      nameHist.open = !bigDrop;
+    }
+    clearTimeout(nameHist.timer);
+    nameHist.timer = setTimeout(() => { nameHist.open = false; }, 700);
+    nameHist.last = v;
+    S.input = v;
+    save();
+    updateHints();
+  }
+  function undoNames() {
+    if (!nameHist.undo.length) { toast('되돌릴 명단이 없어요'); return; }
+    nameHist.redo.push(namesInput.value);
+    const v = nameHist.undo.pop();
+    saveNameHist();
+    applyNames(v);
+    toast('명단을 되돌렸어요');
+  }
+  function redoNames() {
+    if (!nameHist.redo.length) return;
+    nameHist.undo.push(namesInput.value);
+    const v = nameHist.redo.pop();
+    saveNameHist();
+    applyNames(v);
+    toast('명단을 다시 실행했어요');
+  }
+
+  function updateHints() {
+    const names = parseNames(namesInput.value);
+    const n = names.length, size = S.size;
+    const k = Math.min(size, n);
+    $('#countBadge').textContent = `${n}명`;
+    const msgs = [];
+    let warn = false;
+    if (n < 2) { msgs.push('2명 이상 입력해야 대진을 만들 수 있어요.'); warn = true; }
+    else if (n < size) msgs.push(`명단이 ${n}명이라 ${n}강으로 만들어져요.`);
+    else if (n === size) msgs.push(`${n}명, ${size}강에 딱 맞아요.`);
+    else msgs.push(`${size}강보다 ${n - size}명 많아요. ${n - size}명은 이번 대진에서 빠져요.`);
+    if (n >= 2 && pow2(k) > k) msgs.push(`${pow2(k) - k}명은 첫 경기 없이 부전승으로 올라가요.`);
+    const seen = new Set(), dup = new Set();
+    names.forEach((x) => (seen.has(x) ? dup.add(x) : seen.add(x)));
+    if (dup.size) { msgs.push(`같은 이름이 있어요: ${[...dup].join(', ')}. 구분할 수 있게 바꿔 주세요.`); warn = true; }
+    if (n >= 2 && (names.join('\n') !== S.drawn || k !== S.drawnSize)) msgs.push('바뀐 내용은 추첨해야 대진표에 반영돼요.');
+    const h = $('#namesHint');
+    h.textContent = msgs.join(' ');
+    h.classList.toggle('warn', warn);
+    $('#btnDraw2').textContent = n >= 2 ? `랜덤으로 ${k === 2 ? '결승' : `${k}강`} 추첨` : '랜덤 추첨';
+    $('#btnNamesUndo').disabled = !nameHist.undo.length;
+  }
+
+  // Events
+  board.addEventListener('click', (e) => {
+    const btn = e.target.closest('button.p');
+    if (!btn || board.classList.contains('drawing')) return;
+    pick(+btn.dataset.r, +btn.dataset.m, +btn.dataset.pid);
+  });
+  board.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return;
+    const t = e.target.closest('[data-pid]');
+    setHL(t ? t.dataset.pid : null);
+  });
+  board.addEventListener('pointerleave', () => setHL(null));
+  board.addEventListener('focusin', (e) => {
+    const t = e.target.closest('[data-pid]');
+    if (t && e.target.matches(':focus-visible')) setHL(t.dataset.pid);
+  });
+  board.addEventListener('focusout', () => setHL(null));
+
+  $('#btnDraw').addEventListener('click', () => draw(true));
+  $('#btnDraw2').addEventListener('click', () => draw(true));
+  $('#btnOrder').addEventListener('click', () => draw(false));
+  $('#btnUndo').addEventListener('click', undo);
+  $('#btnClear').addEventListener('click', () => {
+    pushHistory();
+    S.wins = emptyWins(B());
+    save();
+    render();
+    toast('경기 결과를 지웠어요. 대진은 그대로예요');
+  });
+  $('#btnPanel').addEventListener('click', () => {
+    S.panel = !S.panel;
+    save();
+    render();
+    if (S.panel) namesInput.focus();
+  });
+  $('#btnNum').addEventListener('click', () => {
+    const n = Math.max(2, Math.min(60, parseInt($('#numInput').value, 10) || 16));
+    $('#numInput').value = n;
+    setNames(Array.from({ length: n }, (_, i) => `${i + 1}번`).join('\n'));
+    toast(`1번부터 ${n}번까지 넣었어요. 추첨을 눌러 주세요`);
+  });
+  $('#btnNamesUndo').addEventListener('click', undoNames);
+  namesInput.addEventListener('input', onNamesInput);
+  namesInput.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if (key === 'z' && !e.shiftKey) { e.preventDefault(); undoNames(); }
+    else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redoNames(); }
+  });
+  titleInput.addEventListener('input', () => {
+    S.title = titleInput.value;
+    $('#titleView').textContent = S.title.trim() || '토너먼트';
+    save();
+  });
+  sizeInput.innerHTML = Array.from({ length: MAX - 1 }, (_, i) => MAX - i)
+    .map((v) => `<option value="${v}">${v}강${v === 2 ? ' (결승만)' : ''}</option>`).join('');
+  sizeInput.addEventListener('change', () => {
+    S.size = +sizeInput.value;
+    save();
+    updateHints();
+  });
+
+  $('#btnFull').addEventListener('click', () => {
+    if (document.fullscreenElement) { document.exitFullscreen && document.exitFullscreen(); return; }
+    const req = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    if (!req) { toast('이 화면에서는 크게 보기를 쓸 수 없어요'); return; }
+    req.catch(() => toast('이 화면에서는 크게 보기를 쓸 수 없어요'));
+  });
+  document.addEventListener('fullscreenchange', () => {
+    const full = !!document.fullscreenElement;
+    document.body.classList.toggle('is-full', full);
+    // The info panel cannot show in fullscreen, so its buttons on both pages are locked until fullscreen ends.
+    document.querySelectorAll('#btnPanel, #gBtnPanel').forEach((b) => { b.disabled = full; b.title = full ? '크게 보기를 끝내면 열 수 있어요' : ''; });
+    $('#btnFull').textContent = full ? '크게 보기 끝내기' : '크게 보기';
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.target.closest('input, textarea, select') && !$('#pageKO').hidden) {
+      e.preventDefault();
+      undo();
+    }
+  });
+
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => drawLines()); ro.observe(board); ro.observe(treeEl); }
+  window.addEventListener('resize', drawLines);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawLines);
+
+  S.size = Math.max(2, Math.min(MAX, +S.size || MAX));
+  sizeInput.value = String(S.size);
+  namesInput.value = S.input || '';
+  nameHist.last = namesInput.value;
+  titleInput.value = S.title || '';
+  render();
+})();
+</script>
+<script>
+// Page 2: groups of a chosen size. Each group sends its top few up; neighbouring groups' qualifiers form the next group.
+(() => {
+  const KEY = 'league16.group.v2';
+  const NAMES_UNDO_KEY = 'league16.group4.names-undo';
+  const KO_KEY = 'league16.v1';
+  const PAGE_KEY = 'league16.page';
+  const LIM = { per: [2, 12], cnt: [1, 32] };
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const SAMPLE = ['김민준', '이서연', '박도윤', '최서윤', '정하준', '강지우', '조은우', '윤하은',
+                  '장시우', '임수아', '한지호', '오지유', '서예준', '신채원', '권유준', '황다은'];
+  const TROPHY = '<svg class="cup" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path class="fill" d="M7 3.5h10v3.5a5 5 0 0 1-10 0V3.5Z"/>' +
+    '<path class="stroke" d="M7 5H4.2v1.4A3.6 3.6 0 0 0 7.6 10M17 5h2.8v1.4A3.6 3.6 0 0 1 16.4 10M12 12v4"/>' +
+    '<path class="fill" d="M8.4 20.5h7.2l-1-4.5H9.4l-1 4.5Z"/></svg>';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (s) => document.querySelector(s);
+  const pageKO = $('#pageKO'), pageGR = $('#pageGR');
+  const board = $('#gBoard'), treeEl = $('#gTree'), svg = $('#gLines');
+  const namesInput = $('#gNamesInput'), titleInput = $('#gTitleInput');
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const parseNames = (t) => String(t || '').split(/[\n,，、]+/)
+    .map((s) => s.trim().replace(/\s+/g, ' ').slice(0, 20)).filter(Boolean);
+  const clamp = (v, lo, hi, d) => { v = parseInt(v, 10); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+  const maxAdv = (per) => Math.floor(per / 2);
+  // A rule is { per, adv }: next-round groups gather `merge` neighbouring groups, so they hold merge * adv players.
+  const mergeOf = (rule) => Math.max(2, Math.floor(rule.per / rule.adv));
+  // Group counts per level, from the first round up to the single final group.
+  function levelCounts(G, rule) {
+    const out = [G];
+    while (out[out.length - 1] > 1) out.push(Math.ceil(out[out.length - 1] / mergeOf(rule)));
+    return out;
+  }
+  // Groups actually used: every group should get at least two players.
+  const usedGroups = (k, cnt) => Math.max(1, Math.min(cnt, Math.floor(k / 2)));
+  const emptyPicks = (G, rule) => levelCounts(G, rule).map((c) => Array.from({ length: c }, () => []));
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Players are numbered in seat order, so group A holds 1..4, group B the next ones, and so on.
+  function place(names, random, per, cnt) {
+    const idx = names.map((_, i) => i);
+    if (random) shuffle(idx);
+    const k = Math.min(per * cnt, names.length);
+    const players = idx.slice(0, k).map((i) => names[i]);
+    const out = idx.slice(k).sort((a, b) => a - b).map((i) => names[i]);
+    const G = usedGroups(k, cnt);
+    const groups = [];
+    let p = 0;
+    for (let g = 0; g < G; g++) {
+      const size = Math.floor(k / G) + (g < k % G ? 1 : 0);
+      groups.push(Array.from({ length: size }, () => p++));
+    }
+    return { players, groups, out };
+  }
+
+  function sampleState() {
+    const rule = { per: 4, adv: 2 };
+    const { players, groups, out } = place(SAMPLE, false, 4, 4);
+    const picks = emptyPicks(groups.length, rule);
+    picks[0][0] = [0, 2]; picks[0][1] = [5, 4]; picks[0][2] = [9];
+    return { title: '보드게임 대회', input: SAMPLE.join('\n'), per: 4, cnt: 4, adv: 2, rule, players, groups, out, picks,
+             drawn: SAMPLE.join('\n'), drawnKey: '4/4/2', example: true, panel: true };
+  }
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY));
+      if (!d || !Array.isArray(d.players) || !Array.isArray(d.groups) || !Array.isArray(d.picks) || !d.rule) return null;
+      const G = d.groups.length, rule = d.rule;
+      if (G < 1 || G > LIM.cnt[1] || !(rule.adv >= 1 && rule.adv <= maxAdv(rule.per))) return null;
+      const counts = levelCounts(G, rule);
+      if (d.picks.length !== counts.length) return null;
+      if (d.picks.some((row, r) => !Array.isArray(row) || row.length !== counts[r] || row.some((x) => !Array.isArray(x)))) return null;
+      if (d.groups.some((x) => !Array.isArray(x))) return null;
+      return Object.assign({ title: '', input: '', per: rule.per, cnt: G, adv: rule.adv, out: [], drawn: '', drawnKey: '', example: false, panel: true }, d);
+    } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ }
+  }
+
+  let S = load() || sampleState();
+  const history = [];
+  let hl = null;
+
+  const G = () => S.groups.length;
+  const counts = () => levelCounts(G(), S.rule);
+  const C = (lv) => counts()[lv];
+  const L = () => counts().length - 1; // level of the final group; the champion sits at L() + 1
+  const K = () => mergeOf(S.rule);
+  const A = () => S.rule.adv;
+  const N = () => S.players.length;
+  const nameOf = (pid) => S.players[pid];
+  // Ranks to pick in a group: the qualifiers, or winner and runner-up in the final.
+  const need = (lv, size) => Math.min(lv === L() ? 2 : A(), size);
+  function levelName(lv) {
+    if (lv > L()) return '우승';
+    if (lv === L()) return '결승';
+    if (lv === L() - 1 && C(lv) === 2) return '준결승';
+    return `${lv + 1}라운드`;
+  }
+  function groupName(lv, g) {
+    if (lv === L()) return '결승조';
+    if (lv === 0 && g < LETTERS.length) return `${LETTERS[g]}조`;
+    return `${g + 1}조`;
+  }
+  const children = (lv, g) => {
+    const out = [];
+    for (let c = g * K(); c < Math.min((g + 1) * K(), C(lv - 1)); c++) out.push(c);
+    return out;
+  };
+  // First-round columns a group spans in the grid.
+  function leafSpan(lv, g) {
+    const w = K() ** lv;
+    return [g * w, Math.min((g + 1) * w, G())];
+  }
+  // How many players a group will hold, and how many will leave it, once everything below is decided.
+  function seats(lv, g) {
+    if (lv === 0) return S.groups[g].length;
+    return children(lv, g).reduce((s, c) => s + Math.min(A(), seats(lv - 1, c)), 0);
+  }
+
+  // Seats of a group: player ids, or null for a seat still waiting on an earlier group.
+  function members(lv, g) {
+    if (lv === 0) return S.groups[g];
+    return children(lv, g).flatMap((c) => adv(lv - 1, c) || Array(Math.min(A(), seats(lv - 1, c))).fill(null));
+  }
+  // A group no bigger than its qualifier count (outside the final) sends everyone up without playing.
+  const isAuto = (lv, g) => lv < L() && members(lv, g).length <= A() && !members(lv, g).includes(null);
+  const needsPlay = (lv, g) => lv === L() || seats(lv, g) > A();
+  function picksOf(lv, g) {
+    const m = members(lv, g);
+    if (m.includes(null)) return [];
+    return S.picks[lv][g].filter((p) => m.includes(p)).slice(0, need(lv, m.length));
+  }
+  // Those who leave a group, in rank order, or null while the group is unfinished.
+  function adv(lv, g) {
+    const m = members(lv, g);
+    if (m.includes(null)) return null;
+    if (lv < L() && m.length <= A()) return m;
+    const p = picksOf(lv, g);
+    return p.length === need(lv, m.length) ? p : null;
+  }
+  // Drop picks of players who no longer sit in that group. Returns how many were dropped.
+  function normalize() {
+    let n = 0;
+    for (let lv = 0; lv <= L(); lv++) for (let g = 0; g < C(lv); g++) {
+      const keep = picksOf(lv, g);
+      n += S.picks[lv][g].length - keep.length;
+      S.picks[lv][g] = keep;
+    }
+    return n;
+  }
+
+  function groupHTML(lv, g) {
+    const [c0, c1] = leafSpan(lv, g);
+    const pos = `class="gcell" style="grid-row:${L() + 2 - lv};grid-column:${2 + c0} / span ${c1 - c0}"`;
+    const m = members(lv, g), p = picksOf(lv, g), fin = lv === L();
+    const auto = isAuto(lv, g), done = adv(lv, g) !== null, waiting = m.includes(null);
+    let st;
+    if (waiting) st = '기다리는 중';
+    else if (auto) st = '자동 진출';
+    else if (done) st = fin ? '끝' : '진출 확정';
+    else st = `${fin ? '순위' : '진출'} ${p.length}/${need(lv, m.length)}`;
+    const rows = m.map((pid) => {
+      if (pid === null) return '<div class="mem tbd"><span class="nm">?</span></div>';
+      const rank = p.indexOf(pid) + 1;
+      const cls = auto || rank ? 'adv' : (done ? 'out' : '');
+      let badge = '';
+      if (auto) badge = '진출';
+      else if (rank) badge = fin ? (rank === 1 ? '우승' : '준우승') : `${rank}위`;
+      const name = esc(nameOf(pid));
+      const inner = (lv === 0 ? `<span class="no">${pid + 1}</span>` : '') +
+        `<span class="nm" title="${name}">${name}</span>` + (badge ? `<span class="rk">${badge}</span>` : '');
+      const data = `data-pid="${pid}" data-lv="${lv}" data-g="${g}"`;
+      if (auto) return `<div class="mem ${cls}" ${data}>${inner}</div>`;
+      const label = rank ? `${nameOf(pid)} ${badge} 취소` : `${nameOf(pid)} 고르기`;
+      return `<button type="button" class="mem ${cls}" ${data} aria-pressed="${rank > 0}" aria-label="${esc(label)}">${inner}</button>`;
+    });
+    return `<div ${pos}><div class="grp${done ? ' done' : ''}${fin ? ' fin' : ''}" data-card="${lv}-${g}">` +
+      `<div class="grp-h"><span>${groupName(lv, g)}</span><span class="st">${st}</span></div>${rows.join('')}</div></div>`;
+  }
+
+  function champHTML() {
+    const pos = `class="gcell" style="grid-row:1;grid-column:2 / span ${G()}"`;
+    const at = `data-card="${L() + 1}-0"`;
+    const p = picksOf(L(), 0);
+    if (!p.length) return `<div ${pos}><div class="champ" ${at}>${TROPHY}<div class="champ-name empty">결승조 결과를 기다려요</div></div></div>`;
+    return `<div ${pos}><div class="champ won" ${at} data-pid="${p[0]}">${TROPHY}<div class="champ-name">${esc(nameOf(p[0]))}</div>` +
+      (p[1] != null ? `<div class="runner">준우승 <b>${esc(nameOf(p[1]))}</b></div>` : '') + '</div></div>';
+  }
+
+  function render(opt = {}) {
+    $('#gTitleView').textContent = (S.title || '').trim() || '다인조 토너먼트';
+    board.style.setProperty('--g', G());
+    treeEl.style.gridTemplateColumns = `var(--lab-w) repeat(${G()}, minmax(0, 1fr))`;
+
+    let html = '', total = 0, done = 0, cur = -1;
+    for (let lv = 0; lv <= L() + 1; lv++) {
+      let prog = '';
+      if (lv <= L()) {
+        let t = 0, d = 0;
+        for (let g = 0; g < C(lv); g++) {
+          if (!needsPlay(lv, g)) continue;
+          t++;
+          if (adv(lv, g)) d++;
+        }
+        total += t; done += d;
+        if (d < t && cur < 0) cur = lv;
+        prog = t ? `${d}/${t}` : '—';
+      }
+      html += `<div class="lab${lv > L() ? ' top' : ''}" style="grid-row:${L() + 2 - lv}">${levelName(lv)}${prog ? `<small>${prog}</small>` : ''}</div>`;
+      if (lv > L()) html += champHTML();
+      else for (let g = 0; g < C(lv); g++) html += groupHTML(lv, g);
+    }
+    treeEl.innerHTML = html;
+
+    const top = picksOf(L(), 0);
+    $('#gStatus').innerHTML = `${N()}명 참가 · 첫 라운드 ${G()}개 조 · 조마다 ${A()}명 진출 · ${done}/${total} 조 경기 완료 · ` +
+      (top.length ? `우승 <b>${esc(nameOf(top[0]))}</b>` : `지금은 <b>${levelName(cur < 0 ? L() : cur)}</b>`);
+
+    const out = $('#gOutLine');
+    out.hidden = !S.out.length;
+    out.innerHTML = S.out.length ? `<b>이번 대진에서 빠진 ${S.out.length}명</b> · ${S.out.map(esc).join(', ')}` : '';
+
+    $('#gExampleNote').hidden = !S.example;
+    $('#gBtnUndo').disabled = !history.length;
+    $('#gBtnClear').disabled = !S.picks.some((row) => row.some((x) => x.length));
+    $('#gPanel').hidden = !S.panel;
+    $('#gBtnPanel').setAttribute('aria-expanded', String(!!S.panel));
+    $('#gBtnPanel').textContent = S.panel ? '대진표 정보 입력 닫기' : '대진표 정보 입력';
+    updateHints();
+    applyHL();
+
+    if (opt.spin) spin();
+    requestAnimationFrame(() => {
+      drawLines();
+      if (opt.pop) {
+        const el = opt.pop.lv < L()
+          ? board.querySelector(`.mem[data-lv="${opt.pop.lv + 1}"][data-pid="${opt.pop.pid}"]`)
+          : board.querySelector('.champ');
+        if (el) el.classList.add('pop');
+      }
+    });
+  }
+
+  // From the top of a child group up to a shared bar, across, then up into the parent.
+  function climb(x1, y1, x2, y2) {
+    if (Math.abs(x2 - x1) < 1) return `M${x1} ${y1}V${y2}`;
+    const yb = (y1 + y2) / 2, dx = Math.sign(x2 - x1);
+    const rr = Math.min(7, Math.abs(x2 - x1) / 2, (y1 - y2) / 2);
+    return `M${x1} ${y1}V${yb + rr}Q${x1} ${yb} ${x1 + dx * rr} ${yb}` +
+      `H${x2 - dx * rr}Q${x2} ${yb} ${x2} ${yb - rr}V${y2}`;
+  }
+
+  function drawLines() {
+    if (pageGR.hidden) return;
+    const br = board.getBoundingClientRect();
+    const W = board.offsetWidth, H = board.offsetHeight;
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const card = (lv, g) => board.querySelector(`[data-card="${lv}-${g}"]`);
+    let off = '', on = '';
+    for (let lv = 0; lv <= L(); lv++) for (let g = 0; g < C(lv); g++) {
+      const ce = card(lv, g), pe = card(lv + 1, lv === L() ? 0 : Math.floor(g / K()));
+      if (!ce || !pe) continue;
+      const c = ce.getBoundingClientRect(), p = pe.getBoundingClientRect();
+      const d = climb(c.left + c.width / 2 - br.left, c.top - br.top, p.left + p.width / 2 - br.left, p.bottom - br.top);
+      const lit = lv === L() ? picksOf(lv, 0).length > 0 : adv(lv, g) !== null;
+      if (lit) on += `<path class="ln on" d="${d}"/>`;
+      else off += `<path class="ln" d="${d}"/>`;
+    }
+    svg.innerHTML = off + on;
+    const sc = board.parentElement;
+    $('#gSwipe').hidden = sc.scrollWidth <= sc.clientWidth + 1;
+    applyHL();
+  }
+
+  function applyHL() {
+    board.querySelectorAll('.hl').forEach((el) => el.classList.remove('hl'));
+    board.classList.toggle('hovering', hl != null);
+    if (hl != null) board.querySelectorAll(`[data-pid="${hl}"]`).forEach((el) => el.classList.add('hl'));
+  }
+  function setHL(pid) {
+    if (pid === hl) return;
+    hl = pid;
+    applyHL();
+  }
+
+  // Slot-machine reveal of the first-round names after a random draw.
+  function spin() {
+    if (reduceMotion) return;
+    const els = [...board.querySelectorAll('.mem[data-lv="0"] .nm')];
+    if (!els.length) return;
+    const pool = els.map((e) => e.textContent);
+    els.forEach((el) => { el.dataset.final = el.textContent; el.classList.add('spin'); el.last = 0; });
+    board.classList.add('drawing');
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = now - t0;
+      let alive = 0;
+      els.forEach((el, i) => {
+        if (!el.classList.contains('spin')) return;
+        if (t > 380 + i * 45) {
+          el.textContent = el.dataset.final;
+          el.classList.remove('spin');
+          el.classList.add('settle');
+        } else {
+          alive++;
+          if (now - el.last > 55) { el.textContent = pool[(Math.random() * pool.length) | 0]; el.last = now; }
+        }
+      });
+      if (alive) requestAnimationFrame(tick);
+      else board.classList.remove('drawing');
+    };
+    requestAnimationFrame(tick);
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  const snap = () => JSON.stringify({ players: S.players, groups: S.groups, rule: S.rule, picks: S.picks, out: S.out, drawn: S.drawn, drawnKey: S.drawnKey, example: S.example });
+  function pushHistory() {
+    history.push(snap());
+    if (history.length > 100) history.shift();
+  }
+
+  function draw(random) {
+    const names = parseNames(namesInput.value);
+    if (names.length < 2) {
+      S.panel = true;
+      render();
+      namesInput.focus();
+      toast('참가자를 2명 이상 입력하세요');
+      return;
+    }
+    pushHistory();
+    const rule = { per: S.per, adv: S.adv };
+    const { players, groups, out } = place(names, random, S.per, S.cnt);
+    Object.assign(S, { players, groups, out, rule, picks: emptyPicks(groups.length, rule), example: false,
+                       drawn: names.join('\n'), drawnKey: formKey(), input: namesInput.value });
+    save();
+    render({ spin: random });
+    toast(`${players.length}명을 ${groups.length}개 조로 ${random ? '새로 추첨했어요' : '입력 순서대로 나눴어요'}`);
+  }
+
+  function choose(lv, g, pid) {
+    const m = members(lv, g);
+    if (m.includes(null) || isAuto(lv, g)) return;
+    const cur = picksOf(lv, g), fin = lv === L(), name = nameOf(pid);
+    let msg, pop = null;
+    if (cur.includes(pid)) {
+      pushHistory();
+      S.picks[lv][g] = cur.filter((x) => x !== pid);
+      msg = `${name}의 ${fin ? '순위를' : '진출을'} 취소했어요`;
+    } else if (cur.length >= need(lv, m.length)) {
+      toast(`이미 ${cur.length}명을 골랐어요. 바꾸려면 고른 사람을 먼저 눌러 취소하세요`);
+      return;
+    } else {
+      pushHistory();
+      S.picks[lv][g] = [...cur, pid];
+      const rank = cur.length + 1;
+      msg = fin ? `${name} ${rank === 1 ? '우승!' : '준우승'}` : `${name} ${groupName(lv, g)} ${rank}위 · ${levelName(lv + 1)} 진출`;
+      if (fin ? rank === 1 : adv(lv, g)) pop = { lv, pid };
+    }
+    const cleared = normalize();
+    if (cleared) msg += ` · 이어진 기록 ${cleared}개를 지웠어요`;
+    save();
+    render({ pop });
+    toast(msg);
+  }
+
+  function undo() {
+    if (!history.length) return;
+    Object.assign(S, JSON.parse(history.pop()));
+    save();
+    render();
+    toast('한 단계 되돌렸어요');
+  }
+
+  // Undo for the name list, same rules as the tournament page: typing is grouped into short bursts
+  // and a big deletion is always its own step. The steps survive a page reload.
+  const nameHist = { undo: [], redo: [], last: '', open: false, timer: 0 };
+  try {
+    const u = JSON.parse(localStorage.getItem(NAMES_UNDO_KEY));
+    if (Array.isArray(u)) nameHist.undo = u.filter((x) => typeof x === 'string').slice(-30);
+  } catch (e) { /* storage unavailable */ }
+  function saveNameHist() {
+    try { localStorage.setItem(NAMES_UNDO_KEY, JSON.stringify(nameHist.undo.slice(-30))); } catch (e) { /* storage unavailable */ }
+  }
+  function pushNameStep(v) {
+    if (nameHist.undo[nameHist.undo.length - 1] !== v) nameHist.undo.push(v);
+    if (nameHist.undo.length > 200) nameHist.undo.shift();
+    nameHist.redo.length = 0;
+    saveNameHist();
+  }
+  function applyNames(v) {
+    namesInput.value = v;
+    nameHist.last = v;
+    nameHist.open = false;
+    S.input = v;
+    save();
+    updateHints();
+  }
+  function setNames(v) {
+    if (v !== namesInput.value) pushNameStep(namesInput.value);
+    applyNames(v);
+  }
+  function onNamesInput() {
+    const v = namesInput.value;
+    const bigDrop = v.length < nameHist.last.length - 1;
+    if (!nameHist.open || bigDrop) {
+      pushNameStep(nameHist.last);
+      nameHist.open = !bigDrop;
+    }
+    clearTimeout(nameHist.timer);
+    nameHist.timer = setTimeout(() => { nameHist.open = false; }, 700);
+    nameHist.last = v;
+    S.input = v;
+    save();
+    updateHints();
+  }
+  function undoNames() {
+    if (!nameHist.undo.length) { toast('되돌릴 명단이 없어요'); return; }
+    nameHist.redo.push(namesInput.value);
+    const v = nameHist.undo.pop();
+    saveNameHist();
+    applyNames(v);
+    toast('명단을 되돌렸어요');
+  }
+  function redoNames() {
+    if (!nameHist.redo.length) return;
+    nameHist.undo.push(namesInput.value);
+    const v = nameHist.redo.pop();
+    saveNameHist();
+    applyNames(v);
+    toast('명단을 다시 실행했어요');
+  }
+
+  const formKey = () => `${S.per}/${S.cnt}/${S.adv}`;
+
+  function sizesText(k, G) {
+    const counts = {};
+    for (let g = 0; g < G; g++) { const s = Math.floor(k / G) + (g < k % G ? 1 : 0); counts[s] = (counts[s] || 0) + 1; }
+    return Object.keys(counts).sort((a, b) => b - a).map((s) => `${s}명 조 ${counts[s]}개`).join(', ');
+  }
+
+  // The round-by-round shape of the chosen form, e.g. "8개 조 → 4개 조 → 2개 조 → 결승조".
+  function shapeText(G, rule) {
+    return levelCounts(G, rule).map((c, i, a) => (i === a.length - 1 ? '결승조' : `${c}개 조`)).join(' → ');
+  }
+
+  function updateHints() {
+    const names = parseNames(namesInput.value);
+    const n = names.length, cap = S.per * S.cnt, k = Math.min(cap, n);
+    const rule = { per: S.per, adv: S.adv };
+    $('#gFormHint').textContent = `최대 ${cap}명 · ${shapeText(S.cnt, rule)}` +
+      (S.cnt > 1 ? ` · 2라운드부터는 한 조에 ${mergeOf(rule) * S.adv}명` : '');
+    $('#gCountBadge').textContent = `${n}명`;
+    const msgs = [];
+    let warn = false;
+    if (n < 2) { msgs.push('2명 이상 입력해야 대진을 만들 수 있어요.'); warn = true; }
+    else {
+      if (n > cap) msgs.push(`양식 인원 ${cap}명보다 ${n - cap}명 많아요. ${n - cap}명은 이번 대진에서 빠져요.`);
+      const G = usedGroups(k, S.cnt);
+      if (G < S.cnt) msgs.push(`${k}명으로는 한 조에 2명 이상 넣을 수 있게 ${G}개 조만 만들어요.`);
+      msgs.push(G === 1 ? `${k}명이 바로 결승조에서 겨뤄요.` : `${k}명 → 첫 라운드 ${G}개 조 (${sizesText(k, G)}).`);
+      if (G > 1 && Math.floor(k / G) <= S.adv) msgs.push(`${S.adv}명 이하인 조는 경기 없이 모두 다음 라운드로 올라가요.`);
+    }
+    const seen = new Set(), dup = new Set();
+    names.forEach((x) => (seen.has(x) ? dup.add(x) : seen.add(x)));
+    if (dup.size) { msgs.push(`같은 이름이 있어요: ${[...dup].join(', ')}. 구분할 수 있게 바꿔 주세요.`); warn = true; }
+    if (n >= 2 && (names.join('\n') !== S.drawn || formKey() !== S.drawnKey)) msgs.push('바뀐 내용은 추첨해야 대진표에 반영돼요.');
+    const h = $('#gNamesHint');
+    h.textContent = msgs.join(' ');
+    h.classList.toggle('warn', warn);
+    $('#gBtnDraw2').textContent = n >= 2 ? `랜덤으로 ${usedGroups(k, S.cnt)}개 조 추첨` : '랜덤 추첨';
+    $('#gBtnNamesUndo').disabled = !nameHist.undo.length;
+  }
+
+  // Read the three form boxes, keeping qualifiers to at most half a group so every round shrinks.
+  function readForm() {
+    S.per = clamp($('#gPerInput').value, LIM.per[0], LIM.per[1], 4);
+    S.cnt = clamp($('#gCntInput').value, LIM.cnt[0], LIM.cnt[1], 4);
+    S.adv = clamp($('#gAdvInput').value, 1, maxAdv(S.per), Math.min(2, maxAdv(S.per)));
+  }
+  function showForm() {
+    $('#gPerInput').value = S.per;
+    $('#gCntInput').value = S.cnt;
+    $('#gAdvInput').value = S.adv;
+    $('#gAdvInput').max = maxAdv(S.per);
+  }
+
+  // Events
+  board.addEventListener('click', (e) => {
+    const btn = e.target.closest('button.mem');
+    if (!btn || board.classList.contains('drawing')) return;
+    choose(+btn.dataset.lv, +btn.dataset.g, +btn.dataset.pid);
+  });
+  board.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return;
+    const t = e.target.closest('[data-pid]');
+    setHL(t ? t.dataset.pid : null);
+  });
+  board.addEventListener('pointerleave', () => setHL(null));
+  board.addEventListener('focusin', (e) => {
+    const t = e.target.closest('[data-pid]');
+    if (t && e.target.matches(':focus-visible')) setHL(t.dataset.pid);
+  });
+  board.addEventListener('focusout', () => setHL(null));
+
+  $('#gBtnDraw').addEventListener('click', () => draw(true));
+  $('#gBtnDraw2').addEventListener('click', () => draw(true));
+  $('#gBtnOrder').addEventListener('click', () => draw(false));
+  $('#gBtnUndo').addEventListener('click', undo);
+  $('#gBtnClear').addEventListener('click', () => {
+    pushHistory();
+    S.picks = emptyPicks(G(), S.rule);
+    save();
+    render();
+    toast('경기 결과를 지웠어요. 조 편성은 그대로예요');
+  });
+  $('#gBtnPanel').addEventListener('click', () => {
+    S.panel = !S.panel;
+    save();
+    render();
+    if (S.panel) namesInput.focus();
+  });
+  $('#gBtnNum').addEventListener('click', () => {
+    const n = Math.max(2, Math.min(200, parseInt($('#gNumInput').value, 10) || 16));
+    $('#gNumInput').value = n;
+    setNames(Array.from({ length: n }, (_, i) => `${i + 1}번`).join('\n'));
+    toast(`1번부터 ${n}번까지 넣었어요. 추첨을 눌러 주세요`);
+  });
+  $('#gBtnImport').addEventListener('click', () => {
+    let v = '';
+    try { v = (JSON.parse(localStorage.getItem(KO_KEY)) || {}).input || ''; } catch (e) { /* storage unavailable */ }
+    if (!parseNames(v).length) { toast('1:1 토너먼트 명단이 비어 있어요'); return; }
+    setNames(v);
+    toast(`토너먼트 명단 ${parseNames(v).length}명을 가져왔어요. 추첨을 눌러 주세요`);
+  });
+  $('#gBtnNamesUndo').addEventListener('click', undoNames);
+  namesInput.addEventListener('input', onNamesInput);
+  namesInput.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if (key === 'z' && !e.shiftKey) { e.preventDefault(); undoNames(); }
+    else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redoNames(); }
+  });
+  titleInput.addEventListener('input', () => {
+    S.title = titleInput.value;
+    $('#gTitleView').textContent = S.title.trim() || '다인조 토너먼트';
+    save();
+  });
+  ['#gPerInput', '#gCntInput', '#gAdvInput'].forEach((id) => {
+    $(id).addEventListener('input', () => {
+      if ($(id).value === '') return;
+      readForm();
+      $('#gAdvInput').max = maxAdv(S.per);
+      save();
+      updateHints();
+    });
+    $(id).addEventListener('change', () => { readForm(); showForm(); save(); updateHints(); });
+  });
+  $('#gBtnFit').addEventListener('click', () => {
+    const n = parseNames(namesInput.value).length;
+    if (n < 2) { toast('명단을 먼저 입력하세요'); return; }
+    S.cnt = Math.max(LIM.cnt[0], Math.min(LIM.cnt[1], Math.ceil(n / S.per)));
+    showForm();
+    save();
+    updateHints();
+    toast(`${n}명에 맞춰 ${S.per}명씩 ${S.cnt}개 조로 정했어요`);
+  });
+
+  $('#gBtnFull').addEventListener('click', () => {
+    if (document.fullscreenElement) { document.exitFullscreen && document.exitFullscreen(); return; }
+    const req = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    if (!req) { toast('이 화면에서는 크게 보기를 쓸 수 없어요'); return; }
+    req.catch(() => toast('이 화면에서는 크게 보기를 쓸 수 없어요'));
+  });
+  document.addEventListener('fullscreenchange', () => {
+    $('#gBtnFull').textContent = document.fullscreenElement ? '크게 보기 끝내기' : '크게 보기';
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.target.closest('input, textarea, select') && !pageGR.hidden) {
+      e.preventDefault();
+      undo();
+    }
+  });
+
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => drawLines()); ro.observe(board); ro.observe(treeEl); }
+  window.addEventListener('resize', drawLines);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawLines);
+
+  // Page switch: both pages keep their own state; the choice is remembered.
+  function showPage(p) {
+    const gr = p === 'group';
+    pageKO.hidden = gr;
+    pageGR.hidden = !gr;
+    document.querySelectorAll('.pager button').forEach((b) => {
+      if (b.dataset.page === p) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    // Each page draws its lines from measured positions, so redraw once it is visible.
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+  document.querySelectorAll('.pager button').forEach((b) => b.addEventListener('click', () => {
+    showPage(b.dataset.page);
+    try { localStorage.setItem(PAGE_KEY, b.dataset.page); } catch (e) { /* storage unavailable */ }
+  }));
+
+  S.per = clamp(S.per, LIM.per[0], LIM.per[1], 4);
+  S.cnt = clamp(S.cnt, LIM.cnt[0], LIM.cnt[1], 4);
+  S.adv = clamp(S.adv, 1, maxAdv(S.per), Math.min(2, maxAdv(S.per)));
+  showForm();
+  namesInput.value = S.input || '';
+  nameHist.last = namesInput.value;
+  titleInput.value = S.title || '';
+  let startPage = 'ko';
+  try { if (localStorage.getItem(PAGE_KEY) === 'group') startPage = 'group'; } catch (e) { /* storage unavailable */ }
+  render();
+  showPage(startPage);
+})();
+</script>
+<script>
+// Save the bracket as a PNG: the board is rendered to a canvas, then the title and status line are drawn above it.
+(() => {
+  const PAGES = {
+    ko: { board: '#board', title: '#titleView', status: '#status', btn: '#btnPng' },
+    group: { board: '#gBoard', title: '#gTitleView', status: '#gStatus', btn: '#gBtnPng' },
+  };
+  // Inside claude.ai the page saves through the viewer's download prompt; opened as a plain file it uses a normal download.
+  const downloadsP = window.claude && window.claude.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+
+  let toastTimer;
+  function toast(msg) {
+    const t = document.querySelector('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  const stamp = () => {
+    const d = new Date(), p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+  const safeName = (s) => s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || '대진표';
+
+  // The board is repainted on a canvas from what is on screen: lines from the SVG path data, boxes from each
+  // element's computed colours and borders, and text one character at a time at its laid-out position, so the
+  // page's own web fonts and vertical names come out exactly as shown.
+  const clear = (c) => !c || c === 'transparent' || /rgba\(.*,\s*0\)$/.test(c);
+  function roundRect(ctx, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  // Clip to every ancestor (and the element itself when asked) that hides its overflow, below the board.
+  function clipTo(ctx, el, board, self) {
+    for (let a = self ? el : el.parentElement; a && a !== board; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.overflow === 'visible' && cs.overflowX === 'visible') continue;
+      const r = a.getBoundingClientRect();
+      roundRect(ctx, r.left, r.top, r.width, r.height, parseFloat(cs.borderTopLeftRadius) || 0);
+      ctx.clip();
+    }
+  }
+  function paintBox(ctx, el, board) {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const rad = parseFloat(cs.borderTopLeftRadius) || 0;
+    const bt = parseFloat(cs.borderTopWidth) || 0, bs = cs.borderTopStyle;
+    const even = ['Right', 'Bottom', 'Left'].every((s) => parseFloat(cs[`border${s}Width`]) === bt);
+    const hasBg = !clear(cs.backgroundColor), hasBorder = bt > 0 && bs !== 'none' && bs !== 'hidden' && !clear(cs.borderTopColor);
+    if (!hasBg && !hasBorder) return;
+    ctx.save();
+    clipTo(ctx, el, board, false);
+    ctx.globalAlpha = +cs.opacity;
+    if (hasBg) {
+      ctx.fillStyle = cs.backgroundColor;
+      roundRect(ctx, r.left, r.top, r.width, r.height, rad);
+      ctx.fill();
+    }
+    if (hasBorder && even) {
+      ctx.strokeStyle = cs.borderTopColor;
+      ctx.lineWidth = bt;
+      ctx.setLineDash(bs === 'dashed' ? [5, 4] : []);
+      roundRect(ctx, r.left + bt / 2, r.top + bt / 2, r.width - bt, r.height - bt, rad - bt / 2);
+      ctx.stroke();
+    } else if (hasBorder) {
+      ctx.fillStyle = cs.borderTopColor; // only the group rows use a single top rule
+      ctx.fillRect(r.left, r.top, r.width, bt);
+    }
+    ctx.restore();
+  }
+  function paintText(ctx, node, board) {
+    const el = node.parentElement, cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden') return;
+    ctx.save();
+    clipTo(ctx, el, board, true);
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    ctx.fillStyle = cs.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const range = document.createRange(), text = node.textContent;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (!ch.trim()) continue;
+      range.setStart(node, i);
+      range.setEnd(node, i + 1);
+      const r = range.getClientRects()[0];
+      if (!r || !r.width) continue;
+      ctx.fillText(ch, r.left + r.width / 2, r.top + r.height / 2);
+      x0 = Math.min(x0, r.left); x1 = Math.max(x1, r.right); y0 = Math.min(y0, r.top); y1 = Math.max(y1, r.bottom);
+    }
+    if (cs.textDecorationLine.includes('line-through') && x1 > x0) {
+      ctx.fillStyle = cs.textDecorationColor || cs.color;
+      if (cs.writingMode.startsWith('vertical')) ctx.fillRect((x0 + x1) / 2 - 0.75, y0, 1.5, y1 - y0);
+      else ctx.fillRect(x0, (y0 + y1) / 2 - 0.75, x1 - x0, 1.5);
+    }
+    ctx.restore();
+  }
+  async function paintIcon(ctx, svg) {
+    const r = svg.getBoundingClientRect();
+    const copy = svg.cloneNode(true);
+    const from = svg.querySelectorAll('*'), to = copy.querySelectorAll('*');
+    from.forEach((s, i) => {
+      const cs = getComputedStyle(s);
+      ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin'].forEach((p) => to[i].setAttribute(p, cs.getPropertyValue(p)));
+      to[i].removeAttribute('class');
+    });
+    copy.removeAttribute('class');
+    copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    copy.setAttribute('width', r.width);
+    copy.setAttribute('height', r.height);
+    const img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(copy));
+    await img.decode();
+    ctx.save();
+    ctx.globalAlpha = +getComputedStyle(svg).opacity;
+    ctx.drawImage(img, r.left, r.top, r.width, r.height);
+    ctx.restore();
+  }
+
+  async function boardCanvas(board, pr) {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const br = board.getBoundingClientRect();
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil(br.width * pr);
+    cv.height = Math.ceil(br.height * pr);
+    const ctx = cv.getContext('2d');
+    ctx.scale(pr, pr);
+    ctx.translate(-br.left, -br.top);
+    board.querySelectorAll('svg.lines path').forEach((p) => {
+      const cs = getComputedStyle(p);
+      ctx.save();
+      ctx.translate(br.left, br.top);
+      ctx.strokeStyle = cs.stroke;
+      ctx.lineWidth = parseFloat(cs.strokeWidth) || 2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke(new Path2D(p.getAttribute('d')));
+      ctx.restore();
+    });
+    const tree = board.querySelector('.tree, .gtree');
+    tree.querySelectorAll('*').forEach((el) => { if (!(el instanceof SVGElement)) paintBox(ctx, el, board); });
+    for (const svg of tree.querySelectorAll('svg')) await paintIcon(ctx, svg);
+    const walk = document.createTreeWalker(tree, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent.trim() && !n.parentElement.closest('svg')) paintText(ctx, n, board);
+    return cv;
+  }
+
+  async function makePng(cfg) {
+    const board = document.querySelector(cfg.board);
+    const css = getComputedStyle(document.body);
+    const tok = (n) => css.getPropertyValue(n).trim();
+    const bg = tok('--bg') || '#F1F3F8';
+    const hovering = board.classList.contains('hovering');
+    board.classList.remove('hovering');
+    let shot;
+    try {
+      shot = await boardCanvas(board, 2);
+    } finally {
+      board.classList.toggle('hovering', hovering);
+    }
+    const pr = 2, pad = 32 * pr, head = 92 * pr;
+    const out = document.createElement('canvas');
+    out.width = shot.width + pad * 2;
+    out.height = shot.height + pad * 2 + head;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = tok('--ink') || '#141E36';
+    ctx.font = `${40 * pr}px "Black Han Sans", "Malgun Gothic", sans-serif`;
+    ctx.fillText(document.querySelector(cfg.title).textContent, pad, pad);
+    ctx.fillStyle = tok('--ink-soft') || '#545F79';
+    ctx.font = `500 ${16 * pr}px "IBM Plex Sans KR", "Malgun Gothic", sans-serif`;
+    ctx.fillText(document.querySelector(cfg.status).textContent, pad, pad + 54 * pr);
+    ctx.drawImage(shot, pad, pad + head);
+    return new Promise((res, rej) => out.toBlob((b) => (b ? res(b) : rej(new Error('toBlob'))), 'image/png'));
+  }
+
+  async function deliver(blob, filename) {
+    const downloads = await downloadsP;
+    if (downloads) {
+      try {
+        await downloads.save({ filename, data: blob });
+        toast('대진표 사진을 저장했어요');
+      } catch (e) {
+        if (e && e.code === 'declined') return;
+        toast(e && e.code === 'rate_limited' ? '잠시 뒤에 다시 눌러 주세요' : '이 화면에서는 사진을 저장할 수 없어요');
+      }
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast('대진표 사진을 저장했어요');
+  }
+
+  Object.values(PAGES).forEach((cfg) => {
+    const btn = document.querySelector(cfg.btn);
+    btn.addEventListener('click', async () => {
+      if (document.querySelector(cfg.board).classList.contains('drawing')) return;
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = '사진 만드는 중…';
+      try {
+        const blob = await makePng(cfg);
+        const title = document.querySelector(cfg.title).textContent;
+        await deliver(blob, `${safeName(title)}_${stamp()}.png`);
+      } catch (e) {
+        toast('사진을 만들지 못했어요. 다시 눌러 주세요');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    });
+  });
+})();
+</script>
+<script>
+// Timer: one countdown shared by both pages; each page header shows its own copy of the controls.
+(() => {
+  const KEY = 'league16.timer';
+  const STEP = 60, MIN = 60, MAX = 99 * 60;
+  const ICON = {
+    minus: '<svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="5.2" width="8" height="1.6" rx=".8"/></svg>',
+    plus: '<svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="5.2" width="8" height="1.6" rx=".8"/><rect x="5.2" y="2" width="1.6" height="8" rx=".8"/></svg>',
+    play: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2.2v7.6L10 6z"/></svg>',
+    pause: '<svg viewBox="0 0 12 12" aria-hidden="true"><rect x="3" y="2.3" width="2.2" height="7.4" rx=".6"/><rect x="6.8" y="2.3" width="2.2" height="7.4" rx=".6"/></svg>',
+    reset: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.2a3.8 3.8 0 1 1-3.6 2.6l1.3.5A2.4 2.4 0 1 0 6 3.6v1.5L3.4 2.9 6 .7z"/></svg>',
+  };
+
+  // dur: the set length; left: seconds left while paused or idle; endAt: finish time while running.
+  const T = { dur: 300, left: 300, endAt: 0, done: false };
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if (d && d.dur >= MIN && d.dur <= MAX) {
+      T.dur = d.dur;
+      T.left = Math.max(0, Math.min(MAX, d.left ?? d.dur));
+      if (d.endAt > Date.now()) T.endAt = d.endAt;
+    }
+  } catch (e) { /* storage unavailable */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ dur: T.dur, left: T.left, endAt: T.endAt })); } catch (e) { /* storage unavailable */ } };
+
+  const running = () => T.endAt > 0;
+  const remaining = () => (running() ? Math.max(0, Math.ceil((T.endAt - Date.now()) / 1000)) : T.left);
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  const els = [...document.querySelectorAll('[data-timer]')];
+  els.forEach((el) => {
+    el.innerHTML = `<span class="t-time" role="timer" aria-live="off">05:00</span><span class="t-btns">` +
+      `<button type="button" class="t-btn" data-t="minus" title="1분 줄이기" aria-label="1분 줄이기">${ICON.minus}</button>` +
+      `<button type="button" class="t-btn" data-t="plus" title="1분 늘리기" aria-label="1분 늘리기">${ICON.plus}</button>` +
+      `<button type="button" class="t-btn go" data-t="go" title="시작" aria-label="시작">${ICON.play}</button>` +
+      `<button type="button" class="t-btn" data-t="reset" title="처음으로" aria-label="처음으로">${ICON.reset}</button></span>`;
+  });
+
+  function render() {
+    const s = remaining(), run = running();
+    els.forEach((el) => {
+      el.querySelector('.t-time').textContent = fmt(s);
+      el.classList.toggle('running', run);
+      el.classList.toggle('low', run && s <= 10);
+      el.classList.toggle('done', T.done);
+      const go = el.querySelector('[data-t="go"]');
+      const label = run ? '일시정지' : '시작';
+      if (go.dataset.state !== label) {
+        go.innerHTML = run ? ICON.pause : ICON.play;
+        go.title = label;
+        go.setAttribute('aria-label', label);
+        go.dataset.state = label;
+      }
+      go.disabled = !run && s === 0;
+      el.querySelector('[data-t="minus"]').disabled = s <= (run ? STEP : MIN);
+      el.querySelector('[data-t="plus"]').disabled = s + STEP > MAX;
+      el.querySelector('[data-t="reset"]').disabled = !run && s === T.dur && !T.done;
+    });
+  }
+
+  // Alarm: the "삐삐삐-삐" pattern plays RINGS times; any press on the timer stops it early.
+  const RINGS = 3;
+  let audio, alarm = null;
+  function getAudio() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+    } catch (e) { audio = null; }
+    return audio;
+  }
+  function tone(at, freq, len) {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.22, at + 0.01);
+    g.gain.setValueAtTime(0.22, at + len - 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+    o.connect(g).connect(audio.destination);
+    o.start(at);
+    o.stop(at + len + 0.02);
+    return o;
+  }
+  function ring() {
+    stopAlarm();
+    if (!getAudio()) return;
+    const nodes = [], t0 = audio.currentTime + 0.05;
+    for (let c = 0; c < RINGS; c++) {
+      const at = t0 + c * 1.6;
+      [0, 0.22, 0.44].forEach((d) => nodes.push(tone(at + d, 1046, 0.14)));
+      nodes.push(tone(at + 0.66, 1318, 0.32));
+    }
+    alarm = nodes;
+  }
+  function stopAlarm() {
+    if (!alarm) return;
+    alarm.forEach((o) => { try { o.stop(); } catch (e) { /* already stopped */ } });
+    alarm = null;
+  }
+  function toast(msg) {
+    const t = document.querySelector('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  let tick = 0;
+  function loop() {
+    clearInterval(tick);
+    if (!running()) return;
+    tick = setInterval(() => {
+      if (remaining() > 0) { render(); return; }
+      T.endAt = 0;
+      T.left = 0;
+      T.done = true;
+      clearInterval(tick);
+      save();
+      render();
+      ring();
+      toast('시간이 다 됐어요! 타이머를 누르면 알림이 멈춰요');
+    }, 250);
+  }
+
+  function act(kind) {
+    // Browsers only allow sound after a click, so every press keeps the audio unlocked for the alarm.
+    getAudio();
+    stopAlarm();
+    const s = remaining();
+    T.done = false;
+    if (kind === 'go') {
+      if (running()) { T.left = s; T.endAt = 0; }
+      else if (s > 0) T.endAt = Date.now() + s * 1000;
+    } else if (kind === 'reset') {
+      T.endAt = 0;
+      T.left = T.dur;
+    } else {
+      const d = kind === 'plus' ? STEP : -STEP;
+      if (running()) T.endAt += d * 1000;
+      else {
+        // Changing the time while it is not counting sets the length the reset button returns to.
+        T.left = Math.max(MIN, Math.min(MAX, (s === 0 ? T.dur : s) + d));
+        T.dur = T.left;
+      }
+    }
+    save();
+    render();
+    loop();
+  }
+
+  els.forEach((el) => el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-t]');
+    if (b && !b.disabled) act(b.dataset.t);
+    else if (T.done || alarm) { stopAlarm(); T.done = false; render(); }
+  }));
+
+  render();
+  loop();
+})();
+</script>
+</body>
+</html>
